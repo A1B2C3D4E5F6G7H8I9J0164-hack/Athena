@@ -1462,7 +1462,7 @@
             <li><a href="/chat.html">Research Studio</a></li>
             <li><a href="/chat.html">Knowledge Vault</a></li>
             <li><a href="/chat.html">RAG Laboratory</a></li>
-            <li><a href="http://localhost:8000/docs" target="_blank" rel="noopener">FastAPI Swagger</a></li>
+            <li><a href="https://athena-8ovs.onrender.com/docs" target="_blank" rel="noopener">FastAPI Swagger</a></li>
           </ul>
         </div>
 
@@ -1596,6 +1596,10 @@
         window.location.href = "/chat.html";
       }
 
+      const API_BASE = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+        ? ""
+        : "https://athena-8ovs.onrender.com";
+
       authForm.addEventListener("submit", async function (e) {
         e.preventDefault();
         errorBox.style.display = "none";
@@ -1608,7 +1612,7 @@
         submitBtn.querySelector("span").textContent = "Authenticating...";
 
         try {
-          const endpoint = currentMode === "signup" ? "/auth/signup" : "/auth/login";
+          const endpoint = currentMode === "signup" ? `${API_BASE}/auth/signup` : `${API_BASE}/auth/login`;
           const payload = currentMode === "signup" ? { name, email, password } : { email, password };
           
           const res = await fetch(endpoint, {
@@ -1643,7 +1647,7 @@
               client_id: GOOGLE_CLIENT_ID,
               scope: "email profile openid",
               error_callback: function(err) {
-                errorBox.innerHTML = `<strong>Google Origin Pending:</strong> Add <code>http://localhost:5173</code> in Google Cloud Console. <br/><button type="button" id="direct-google-btn" style="margin-top:8px;padding:6px 12px;background:#fff;color:#000;border:none;border-radius:6px;font-weight:600;cursor:pointer;width:100%;">Continue & Sync to MongoDB Now ↗</button>`;
+                errorBox.innerHTML = `<strong>Google Origin Pending:</strong> Add <code>${window.location.origin}</code> in Google Cloud Console. <br/><button type="button" id="direct-google-btn" style="margin-top:8px;padding:6px 12px;background:#fff;color:#000;border:none;border-radius:6px;font-weight:600;cursor:pointer;width:100%;">Continue & Sync to MongoDB Now ↗</button>`;
                 errorBox.style.display = "block";
                 document.getElementById("direct-google-btn")?.addEventListener("click", function() {
                   triggerOAuth("google");
@@ -1664,7 +1668,7 @@
                   });
                   const profile = await userInfoRes.json();
 
-                  const res = await fetch("/auth/oauth", {
+                  const res = await fetch(`${API_BASE}/auth/oauth`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -1702,7 +1706,7 @@
           const defaultEmail = `${provider}_user_${Date.now().toString().slice(-4)}@${provider}.com`;
           const defaultName = "Google User";
 
-          const res = await fetch("/auth/oauth", {
+          const res = await fetch(`${API_BASE}/auth/oauth`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
