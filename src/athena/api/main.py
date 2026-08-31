@@ -94,15 +94,19 @@ app = create_app()
 
 
 def run_server() -> None:
-    """Entry point for `athena-serve` CLI command."""
+    """Entry point for `athena-serve` CLI command and Render web service."""
     import uvicorn
 
     config = load_config()
+    port = int(os.environ.get("PORT", getattr(config.api, "port", 10000)))
+    host = os.environ.get("HOST", getattr(config.api, "host", "0.0.0.0"))
+    
     logging.basicConfig(level=logging.INFO)
+    logger.info("Athena listening on http://%s:%d", host, port)
     uvicorn.run(
         "athena.api.main:app",
-        host=config.api.host,
-        port=config.api.port,
+        host=host,
+        port=port,
         reload=False,
     )
 
