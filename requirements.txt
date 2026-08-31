@@ -1,21 +1,40 @@
-chromadb>=0.5.0
+# CPU-only PyTorch — MUST come first to avoid pulling CUDA version (~2GB)
+# This reduces RAM from 500MB+ to ~150MB for PyTorch alone
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.2.2+cpu
+torchvision==0.17.2+cpu
+
+# ML / Embeddings
 sentence-transformers>=3.0.0
 rank-bm25>=0.2.2
+
+# Vector store
+chromadb>=0.5.0
+
+# Document parsing
 pypdf>=4.0.0
+
+# Config & CLI
 pyyaml>=6.0
 click>=8.1.0
 rich>=13.0.0
 numpy>=1.26.0
 tiktoken>=0.7.0
+
+# Agent / LLM
 langgraph>=0.2.0
 langchain-core>=0.3.0
 langchain-openai>=0.2.0
 langchain-ollama>=0.2.0
 duckduckgo-search>=6.0.0
+
+# API server
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 python-multipart>=0.0.9
 sse-starlette>=2.0.0
+
+# Auth & DB
 pymongo>=4.6.0
 bcrypt>=4.1.0
 pyjwt>=2.8.0
