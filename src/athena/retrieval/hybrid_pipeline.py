@@ -70,10 +70,16 @@ class HybridRetrievalPipeline:
     def __init__(self, config: AthenaConfig) -> None:
         self.config = config
         self.embedder = LocalEmbedder(config.embeddings)
-        self.vector_store = ChromaVectorStore(config)
         self.bm25 = BM25Retriever()
         self.reranker = CrossEncoderReranker(config.reranker)
+        self._vector_store: ChromaVectorStore | None = None
         self._bm25_built = False
+
+    @property
+    def vector_store(self) -> ChromaVectorStore:
+        if self._vector_store is None:
+            self._vector_store = ChromaVectorStore(self.config)
+        return self._vector_store
 
     def _ensure_bm25_index(self) -> None:
         if self._bm25_built:

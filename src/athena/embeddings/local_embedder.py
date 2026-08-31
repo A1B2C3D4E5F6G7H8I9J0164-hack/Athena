@@ -22,15 +22,33 @@ logger = logging.getLogger(__name__)
 
 
 class LocalEmbedder:
-    """Thin wrapper around SentenceTransformer with LRU query caching."""
+    """Thin wrapper around SentenceTransformer with LRU query caching and lazy loading."""
 
     def __init__(self, config: EmbeddingsConfig) -> None:
         self.config = config
-        logger.info("Loading embedding model: %s", config.model)
-        self.model = SentenceTransformer(config.model, device=config.device)
-        self.dimension = self.model.get_sentence_embedding_dimension()
+        self._model: SentenceTransformer | None = None
+        self._dimension: int = 384
         self._query_cache: dict[str, np.ndarray] = {}
-        logger.info("Embedding dimension: %d", self.dimension)
+
+    @property
+    def model(self) -> SentenceTransformer:
+        if self._model is None:
+            try:
+                import torch
+                torch.set_num_threads(1)
+                torch.set_grad_enabled(False)
+            except Exception:
+                pass
+            logger.info("Lazy loading embedding model: %s", self.config.model)
+            from sentence_transformers import SentenceTransformer
+            self._model = SentenceTransformer(self.config.model, device=self.config.device)
+            self._dimension = self._model.get_sentence_embedding_dimension()
+            logger.info("Embedding model loaded, dimension: %d", self._dimension)
+        return self._model
+
+    @property
+    def dimension(self) -> int:
+        return self._dimension
 
     def embed_documents(self, texts: Sequence[str]) -> np.ndarray:
         """Encode document chunks for storage in ChromaDB."""

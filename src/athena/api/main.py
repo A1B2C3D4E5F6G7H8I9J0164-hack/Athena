@@ -4,11 +4,15 @@ FastAPI application — POST /query, GET /health, GET /metrics.
 Serves the React frontend in production via static mount.
 """
 
-from __future__ import annotations
-
 import logging
+import os
 from functools import lru_cache
 from pathlib import Path
+
+# Limit CPU threads to prevent memory explosion on 512MB RAM hosts (Render free tier)
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -75,9 +79,8 @@ def create_app() -> FastAPI:
     @app.on_event("startup")
     async def startup() -> None:
         logger.info(
-            "Athena API started — LLM: %s, docs indexed: %d",
+            "Athena API started successfully — Provider: %s",
             config.llm.provider,
-            get_doc_count_cached(),
         )
 
     # Serve built React app if available

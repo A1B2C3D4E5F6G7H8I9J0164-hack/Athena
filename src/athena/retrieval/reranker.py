@@ -23,13 +23,27 @@ logger = logging.getLogger(__name__)
 
 
 class CrossEncoderReranker:
-    """Rerank retrieval candidates using a cross-encoder model with fast memoization."""
+    """Rerank retrieval candidates using a cross-encoder model with fast memoization and lazy loading."""
 
     def __init__(self, config: RerankerConfig) -> None:
         self.config = config
-        logger.info("Loading cross-encoder reranker: %s", config.model)
-        self.model = CrossEncoder(config.model)
+        self._model: CrossEncoder | None = None
         self._score_cache: dict[tuple[str, str], float] = {}
+
+    @property
+    def model(self) -> CrossEncoder:
+        if self._model is None:
+            try:
+                import torch
+                torch.set_num_threads(1)
+                torch.set_grad_enabled(False)
+            except Exception:
+                pass
+            logger.info("Lazy loading cross-encoder reranker: %s", self.config.model)
+            from sentence_transformers import CrossEncoder
+            self._model = CrossEncoder(self.config.model)
+            logger.info("Cross-encoder reranker loaded")
+        return self._model
 
     def rerank(
         self,
