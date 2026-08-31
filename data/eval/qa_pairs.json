@@ -1,0 +1,37 @@
+[
+  {
+    "question": "What is retrieval-augmented generation?",
+    "relevant_sources": [
+      {"filename": "sample_rag_guide.md", "page": 0}
+    ],
+    "notes": "Definition is in the Overview section of sample_rag_guide.md"
+  },
+  {
+    "question": "Why use hybrid retrieval instead of pure vector search?",
+    "relevant_sources": [
+      {"filename": "sample_rag_guide.md", "page": 0}
+    ],
+    "notes": "Explained in Hybrid Retrieval / Why Not Pure Vector Search section"
+  },
+  {
+    "question": "What is reciprocal rank fusion used for?",
+    "relevant_sources": [
+      {"filename": "sample_rag_guide.md", "page": 0}
+    ],
+    "notes": "RRF mentioned in hybrid retrieval pipeline description"
+  },
+  {
+    "question": "How are documents chunked for the vector store?",
+    "relevant_sources": [
+      {"filename": "sample_rag_guide.md", "page": 0}
+    ],
+    "notes": "Chunking Strategy section describes 512 char chunks with 64 overlap"
+  },
+  {
+    "question": "What metrics are used to evaluate retrieval quality?",
+    "relevant_sources": [
+      {"filename": "sample_rag_guide.md", "page": 0}
+    ],
+    "notes": "Evaluation section lists precision@k, recall@k, MRR"
+  }
+]

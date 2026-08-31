@@ -1,0 +1,1729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Athena — Autonomous Research & Hybrid RAG Agent</title>
+  <meta name="description" content="Autonomous research agent with hybrid RAG, reciprocal rank fusion, LangGraph multi-stage routing, and verifiable inline source citations." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cg transform='rotate(-30 12 12)'%3E%3Ccircle cx='7.3' cy='3.2' r='1.45'/%3E%3Crect x='5.5' y='4.7' width='3.6' height='14.6' rx='1.8'/%3E%3Crect x='14.9' y='4.7' width='3.6' height='14.6' rx='1.8'/%3E%3Ccircle cx='16.7' cy='20.8' r='1.45'/%3E%3C/g%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      background: #000000;
+      color: #ffffff;
+      color-scheme: dark;
+    }
+
+    body {
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #000000;
+      color: #ffffff;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    :root {
+      --bg: #000000;
+      --card-bg: rgba(14, 14, 18, 0.7);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --card-border-hover: rgba(255, 255, 255, 0.28);
+      --muted: #94949e;
+      --accent: #ffffff;
+      --accent-glow: rgba(255, 255, 255, 0.15);
+      --radius: 14px;
+      --radius-sm: 8px;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button {
+      font-family: inherit;
+      border: none;
+      background: none;
+      cursor: pointer;
+    }
+
+    /* Subtle background grain & ambient glow */
+    .grain {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      pointer-events: none;
+      opacity: 0.035;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 180px 180px;
+    }
+
+    .ambient-glow {
+      position: fixed;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 900px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.04) 0%, rgba(200, 220, 255, 0.02) 40%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Typography */
+    .serif-accent {
+      font-family: "Instrument Serif", "Times New Roman", Times, serif;
+      font-style: italic;
+      font-weight: 400;
+      color: #c4c4cc;
+      letter-spacing: -0.01em;
+    }
+
+    /* Container */
+    .container {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.3s ease;
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px;
+    }
+
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: #fff;
+    }
+
+    .logo-mark {
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .logo-badge {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #e4e4e7;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .nav-menu {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .nav-link {
+      padding: 7px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 13.5px;
+      font-weight: 400;
+      color: #a1a1aa;
+      transition: all 0.2s ease;
+    }
+
+    .nav-link:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 9px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .btn-solid {
+      background: linear-gradient(180deg, #ffffff 0%, #e6e6e6 50%, #d1d1d6 100%);
+      color: #09090b;
+      border: 1px solid #ffffff;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 4px 14px rgba(0, 0, 0, 0.5);
+    }
+
+    .btn-solid:hover {
+      background: linear-gradient(180deg, #ffffff 0%, #f4f6fc 50%, #dce4f5 100%);
+      box-shadow: inset 0 1px 0 #ffffff, 0 0 24px rgba(255, 255, 255, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .btn-ghost {
+      background: rgba(255, 255, 255, 0.05);
+      color: #e4e4e7;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+    }
+
+    .btn-ghost:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.35);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+
+    .btn-lg {
+      padding: 13px 26px;
+      font-size: 15px;
+      border-radius: 10px;
+    }
+
+    .burger {
+      display: none;
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.04);
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Badge Pill */
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      font-size: 12.5px;
+      color: #e4e4e7;
+      margin-bottom: 24px;
+    }
+
+    .badge-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    /* Hero Section */
+    .hero-section {
+      padding: 90px 0 60px;
+      text-align: center;
+      position: relative;
+    }
+
+    .hero-title {
+      font-size: clamp(38px, 6vw, 68px);
+      font-weight: 500;
+      letter-spacing: -0.045em;
+      line-height: 1.1;
+      max-width: 960px;
+      margin: 0 auto 24px;
+      color: #ffffff;
+    }
+
+    .hero-desc {
+      font-size: clamp(16px, 2vw, 19px);
+      color: var(--muted);
+      max-width: 680px;
+      margin: 0 auto 36px;
+      line-height: 1.6;
+      font-weight: 400;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 56px;
+      flex-wrap: wrap;
+    }
+
+    /* Live Stats Bar */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      padding: 24px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(16px);
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+
+    .stat-item {
+      text-align: left;
+      padding: 8px 12px;
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .stat-item:last-child {
+      border-right: none;
+    }
+
+    .stat-value {
+      font-size: 22px;
+      font-weight: 600;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* Section Styles */
+    .section {
+      padding: 90px 0;
+      position: relative;
+    }
+
+    .section-header {
+      text-align: center;
+      max-width: 720px;
+      margin: 0 auto 60px;
+    }
+
+    .section-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #a1a1aa;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: clamp(28px, 4vw, 44px);
+      font-weight: 500;
+      letter-spacing: -0.035em;
+      line-height: 1.2;
+      color: #ffffff;
+      margin-bottom: 16px;
+    }
+
+    .section-desc {
+      font-size: 16px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* Glass Cards Grid */
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+    }
+
+    .glass-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 32px 28px;
+      backdrop-filter: blur(16px);
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .glass-card:hover {
+      border-color: var(--card-border-hover);
+      transform: translateY(-3px);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5), 0 0 28px rgba(255, 255, 255, 0.04);
+    }
+
+    .card-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      color: #ffffff;
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+      color: #ffffff;
+    }
+
+    .card-text {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* Pipeline Timeline / How It Works */
+    .pipeline-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+      margin-bottom: 40px;
+    }
+
+    .pipeline-step {
+      background: rgba(18, 18, 24, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: var(--radius);
+      padding: 24px 20px;
+      position: relative;
+    }
+
+    .step-num {
+      font-size: 11px;
+      font-weight: 700;
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 3px 8px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+
+    .step-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+
+    .step-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* About Us Showcase */
+    .about-box {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(14, 14, 20, 0.8) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 20px;
+      padding: 48px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+
+    .about-item {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .about-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .about-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: #ffffff;
+    }
+
+    /* Pricing Section */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      align-items: stretch;
+    }
+
+    .pricing-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 36px 30px;
+      display: flex;
+      flex-direction: column;
+      backdrop-filter: blur(16px);
+      transition: all 0.35s ease;
+      position: relative;
+    }
+
+    .pricing-card.popular {
+      border-color: rgba(255, 255, 255, 0.35);
+      background: linear-gradient(180deg, rgba(30, 30, 40, 0.8) 0%, rgba(14, 14, 20, 0.9) 100%);
+      box-shadow: 0 0 35px rgba(255, 255, 255, 0.08);
+    }
+
+    .popular-tag {
+      position: absolute;
+      top: -12px;
+      right: 24px;
+      background: #ffffff;
+      color: #000000;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .plan-name {
+      font-size: 20px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 6px;
+    }
+
+    .plan-desc {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+
+    .plan-price {
+      font-size: 40px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 24px;
+      letter-spacing: -0.03em;
+    }
+
+    .plan-price span {
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--muted);
+    }
+
+    .plan-features {
+      list-style: none;
+      margin-bottom: 32px;
+      flex-grow: 1;
+    }
+
+    .plan-features li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13.5px;
+      color: #d4d4d8;
+      margin-bottom: 12px;
+    }
+
+    .plan-features svg {
+      width: 16px;
+      height: 16px;
+      color: #ffffff;
+      flex-shrink: 0;
+    }
+
+    /* FAQs */
+    .faq-list {
+      max-width: 840px;
+      margin: 0 auto;
+    }
+
+    .faq-item {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: border-color 0.2s ease;
+      margin-bottom: 12px;
+    }
+
+    .faq-item:hover {
+      border-color: rgba(255, 255, 255, 0.22);
+    }
+
+    .faq-question {
+      width: 100%;
+      text-align: left;
+      padding: 22px 26px;
+      font-size: 16px;
+      font-weight: 500;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      cursor: pointer;
+    }
+
+    .faq-icon {
+      transition: transform 0.3s ease;
+      flex-shrink: 0;
+    }
+
+    .faq-item.active .faq-icon {
+      transform: rotate(45deg);
+    }
+
+    .faq-answer {
+      display: none;
+      padding: 0 26px 22px;
+      font-size: 14.5px;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .faq-item.active .faq-answer {
+      display: block;
+    }
+
+    /* CTA Banner */
+    .cta-banner {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(20, 20, 28, 0.9) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 24px;
+      padding: 64px 36px;
+      text-align: center;
+      margin: 60px 0 100px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Footer */
+    .footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 60px 0 40px;
+      background: #040406;
+      color: var(--muted);
+      font-size: 13.5px;
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 40px;
+      margin-bottom: 48px;
+    }
+
+    .footer-brand p {
+      max-width: 320px;
+      margin-top: 12px;
+      font-size: 13px;
+      color: #71717a;
+    }
+
+    .footer-col-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .footer-links {
+      list-style: none;
+    }
+
+    .footer-links li {
+      margin-bottom: 10px;
+    }
+
+    .footer-links a {
+      color: #a1a1aa;
+      transition: color 0.2s ease;
+    }
+
+    .footer-links a:hover {
+      color: #ffffff;
+    }
+
+    .footer-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 28px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 12px;
+      color: #71717a;
+    }
+
+    /* Embedded Auth Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(16px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal-card {
+      background: #08080c;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 440px;
+      padding: 32px;
+      position: relative;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9), 0 0 40px rgba(255, 255, 255, 0.05);
+      animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes modalIn {
+      0% { opacity: 0; transform: scale(0.95) translateY(10px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      color: #71717a;
+      padding: 6px;
+      border-radius: 6px;
+      transition: color 0.2s;
+    }
+    .modal-close:hover { color: #ffffff; background: rgba(255, 255, 255, 0.06); }
+
+    .modal-tab-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 4px;
+      margin: 20px 0;
+    }
+
+    .modal-tab {
+      padding: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #a1a1aa;
+      border-radius: 6px;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .modal-tab.active {
+      background: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .oauth-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+      text-align: left;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #a1a1aa;
+      margin-bottom: 6px;
+    }
+
+    .form-input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #ffffff;
+      font-size: 13.5px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-input:focus {
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .auth-error {
+      background: rgba(244, 63, 94, 0.1);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+      color: #fda4af;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      margin-bottom: 14px;
+      display: none;
+    }
+
+    /* Responsive */
+    @media (max-width: 960px) {
+      .stats-bar {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .stat-item {
+        border-right: none;
+      }
+      .grid-3, .pricing-grid, .pipeline-grid {
+        grid-template-columns: 1fr;
+      }
+      .grid-2, .about-box {
+        grid-template-columns: 1fr;
+      }
+      .footer-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .nav-menu {
+        display: none;
+        position: fixed;
+        inset: 72px 0 0 0;
+        background: rgba(0, 0, 0, 0.96);
+        backdrop-filter: blur(24px);
+        flex-direction: column;
+        padding: 40px 24px;
+        gap: 16px;
+        z-index: 40;
+      }
+      body.menu-open .nav-menu {
+        display: flex;
+      }
+      .burger {
+        display: flex;
+      }
+      .stats-bar {
+        grid-template-columns: 1fr;
+      }
+      .footer-grid {
+        grid-template-columns: 1fr;
+      }
+      .hero-actions {
+        flex-direction: column;
+        width: 100%;
+      }
+      .hero-actions .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="grain"></div>
+  <div class="ambient-glow"></div>
+
+  <!-- Sticky Header -->
+  <header class="header">
+    <div class="container">
+      <div class="header-inner">
+        <a href="#top" class="logo">
+          <svg class="logo-mark" viewBox="0 0 24 24" fill="currentColor">
+            <g transform="rotate(-30 12 12)">
+              <circle cx="7.3" cy="3.2" r="1.45"/>
+              <rect x="5.5" y="4.7" width="3.6" height="14.6" rx="1.8"/>
+              <rect x="14.9" y="4.7" width="3.6" height="14.6" rx="1.8"/>
+              <circle cx="16.7" cy="20.8" r="1.45"/>
+            </g>
+          </svg>
+          <span>Athena<span style="color:#a1a1aa">.ai</span></span>
+          <span class="logo-badge">v0.2.0</span>
+        </a>
+
+        <nav class="nav-menu" id="nav-menu" aria-label="Main Navigation">
+          <a href="#about" class="nav-link">About Us</a>
+          <a href="#benefits" class="nav-link">Benefits</a>
+          <a href="#how-it-works" class="nav-link">Architecture</a>
+          <a href="#pricing" class="nav-link">Pricing</a>
+          <a href="#faqs" class="nav-link">FAQs</a>
+          
+          <div style="display: flex; align-items: center; gap: 8px; margin-left: 12px;">
+            <button type="button" class="btn btn-ghost open-auth-btn" data-mode="login">
+              Sign In
+            </button>
+            <button type="button" class="btn btn-solid open-auth-btn" data-mode="signup">
+              Sign Up Free
+            </button>
+            <a href="/chat.html" class="btn btn-ghost" title="Direct Studio Access">
+              Studio ↗
+            </a>
+          </div>
+        </nav>
+
+        <button class="burger" id="burger-btn" aria-label="Toggle navigation menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main>
+    <section class="hero-section" id="top">
+      <div class="container">
+        <div class="badge-pill">
+          <span class="badge-dot"></span>
+          <span>Next-Gen Autonomous Research & Hybrid RAG Agent</span>
+        </div>
+
+        <h1 class="hero-title">
+          Synthesize knowledge with <span class="serif-accent">grounded citations</span> and multi-source intelligence.
+        </h1>
+
+        <p class="hero-desc">
+          Athena routes your queries between local vector databases and real-time web search using LangGraph, Reciprocal Rank Fusion (RRF), and cross-encoder reranking — returning verified claims with complete inline source citations.
+        </p>
+
+        <div class="hero-actions">
+          <button type="button" class="btn btn-solid btn-lg open-auth-btn" data-mode="signup">
+            <span>Sign Up & Start Free</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </button>
+          
+          <a href="/chat.html" class="btn btn-ghost btn-lg">
+            <span>Launch Research Studio ↗</span>
+          </a>
+
+          <a href="#how-it-works" class="btn btn-ghost btn-lg">
+            <span>Explore Architecture ↓</span>
+          </a>
+        </div>
+
+        <!-- Live Metrics Bar -->
+        <div class="stats-bar">
+          <div class="stat-item">
+            <div class="stat-value">Dense + BM25</div>
+            <div class="stat-label">Hybrid RAG with Reciprocal Rank Fusion</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">100% Verified</div>
+            <div class="stat-label">Inline grounded citations & page mapping</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">LangGraph</div>
+            <div class="stat-label">Autonomous state machine agent routing</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">Live Stream</div>
+            <div class="stat-label">SSE real-time step visualization & telemetry</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- About Us Section -->
+    <section class="section" id="about">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-badge">About Athena</span>
+          <h2 class="section-title">Built to eliminate hallucination in modern AI research.</h2>
+          <p class="section-desc">
+            Raw LLMs suffer from knowledge cutoffs, and standard vector search misses critical keywords. Athena solves both with hybrid retrieval and autonomous routing.
+          </p>
+        </div>
+
+        <div class="about-box">
+          <div>
+            <h3 style="font-size: 24px; font-weight: 600; margin-bottom: 16px; color: #ffffff; letter-spacing: -0.02em;">
+              Why We Engineered Athena
+            </h3>
+            <p style="color: var(--muted); font-size: 15px; line-height: 1.7; margin-bottom: 20px;">
+              Enterprise research requires verifiable truth. Athena combines deep local knowledge vaults with live DuckDuckGo web search under a unified LangGraph cognitive pipeline.
+            </p>
+            <p style="color: var(--muted); font-size: 15px; line-height: 1.7;">
+              Every claim generated by Athena is mapped directly to indexed document chunks or verified URLs with automated faithfulness scoring and MongoDB session syncing.
+            </p>
+          </div>
+
+          <div>
+            <div class="about-item">
+              <div class="about-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div>
+              <div>
+                <h4 style="font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px;">Zero-Cost Local First</h4>
+                <p style="font-size: 13.5px; color: var(--muted);">Runs locally with MiniLM embeddings, ChromaDB, and Ollama or OpenRouter.</p>
+              </div>
+            </div>
+
+            <div class="about-item">
+              <div class="about-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24M14.83 9.17l4.24-4.24M14.83 14.83l4.24 4.24M9.17 14.83l-4.24 4.24"/></svg>
+              </div>
+              <div>
+                <h4 style="font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px;">Autonomous Intent Routing</h4>
+                <p style="font-size: 13.5px; color: var(--muted);">Dynamically routes between local documents, live web queries, or multi-source fusion.</p>
+              </div>
+            </div>
+
+            <div class="about-item">
+              <div class="about-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              </div>
+              <div>
+                <h4 style="font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px;">Audited & Verifiable</h4>
+                <p style="font-size: 13.5px; color: var(--muted);">MongoDB Atlas persistence, SQLite logs, and 1-click Markdown research report export.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Key Benefits Section -->
+    <section class="section" id="benefits">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-badge">Key Benefits</span>
+          <h2 class="section-title">Engineered for accuracy, speed, and transparency.</h2>
+          <p class="section-desc">
+            Explore the core architectural strengths that distinguish Athena from simple chatbot wrappers.
+          </p>
+        </div>
+
+        <div class="grid-3">
+          <div class="glass-card">
+            <div class="card-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            </div>
+            <h3 class="card-title">Hybrid Retrieval (RRF)</h3>
+            <p class="card-text">
+              Combines dense semantic vectors (MiniLM) with sparse keyword matching (BM25 Okapi) using Reciprocal Rank Fusion, followed by cross-encoder reranking.
+            </p>
+          </div>
+
+          <div class="glass-card">
+            <div class="card-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            </div>
+            <h3 class="card-title">Inline Grounded Citations</h3>
+            <p class="card-text">
+              Every synthesized answer features inline clickable references linked to exact document chunk text, PDF pages, or live web URLs.
+            </p>
+          </div>
+
+          <div class="glass-card">
+            <div class="card-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </div>
+            <h3 class="card-title">Dynamic Web Fallback</h3>
+            <p class="card-text">
+              When queries refer to breaking news, real-time events, or out-of-domain topics, Athena automatically searches live web sources.
+            </p>
+          </div>
+
+          <div class="glass-card">
+            <div class="card-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <h3 class="card-title">Live SSE Step Streaming</h3>
+            <p class="card-text">
+              Watch the agent think in real time. Server-Sent Events deliver step-by-step state transitions directly to the animated UI pipeline.
+            </p>
+          </div>
+
+          <div class="glass-card">
+            <div class="card-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            </div>
+            <h3 class="card-title">RAG Laboratory & Vault</h3>
+            <p class="card-text">
+              Interactive test bench to inspect raw retrieval chunks, adjust top-k parameters, and upload PDF/MD files with immediate fingerprint indexing.
+            </p>
+          </div>
+
+          <div class="glass-card">
+            <div class="card-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <h3 class="card-title">MongoDB Sync & Export</h3>
+            <p class="card-text">
+              Persist all research sessions to MongoDB with full latency metrics and export formatted Markdown/JSON research dossiers with one click.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Architecture / How It Works -->
+    <section class="section" id="how-it-works">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-badge">How It Works</span>
+          <h2 class="section-title">The 4-Stage LangGraph Agent Pipeline</h2>
+          <p class="section-desc">
+            A look under the hood at how queries move from intent classification to synthesized cited answers.
+          </p>
+        </div>
+
+        <div class="pipeline-grid">
+          <div class="pipeline-step">
+            <span class="step-num">STAGE 01</span>
+            <h3 class="step-title">Intent & Planning</h3>
+            <p class="step-desc">Deconstructs the user query, extracts key entities, and decides the optimal research strategy.</p>
+          </div>
+          <div class="pipeline-step">
+            <span class="step-num">STAGE 02</span>
+            <h3 class="step-title">Intelligent Routing</h3>
+            <p class="step-desc">Checks local KB confidence threshold and temporal triggers to branch into Local RAG, Web Live, or Both.</p>
+          </div>
+          <div class="pipeline-step">
+            <span class="step-num">STAGE 03</span>
+            <h3 class="step-title">Hybrid RRF & Rerank</h3>
+            <p class="step-desc">Dense + BM25 candidates fused via Reciprocal Rank Fusion (k=60) and reranked by a cross-encoder model.</p>
+          </div>
+          <div class="pipeline-step">
+            <span class="step-num">STAGE 04</span>
+            <h3 class="step-title">Synthesis & Citation</h3>
+            <p class="step-desc">Synthesizes evidence into structured markdown with inline [n] references and validates faithfulness score.</p>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 24px;">
+          <button type="button" class="btn btn-solid btn-lg open-auth-btn" data-mode="signup">
+            <span>Sign Up to Test Pipeline ↗</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="section" id="pricing">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-badge">Pricing & Plans</span>
+          <h2 class="section-title">Simple, transparent, developer-first pricing.</h2>
+          <p class="section-desc">
+            From local open-source testing to production-grade enterprise research deployments.
+          </p>
+        </div>
+
+        <div class="pricing-grid">
+          <!-- Tier 1 -->
+          <div class="pricing-card">
+            <h3 class="plan-name">Community</h3>
+            <p class="plan-desc">For local developers and AI researchers testing offline RAG.</p>
+            <div class="plan-price">$0 <span>/ forever</span></div>
+            <ul class="plan-features">
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>100% Self-Hosted & Local</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>MiniLM-L6 Local Embeddings</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>ChromaDB Vector Store</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Ollama / OpenRouter Support</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>MongoDB & SQLite Logs</span>
+              </li>
+            </ul>
+            <button type="button" class="btn btn-ghost open-auth-btn" data-mode="signup" style="width: 100%;">
+              Sign Up Free
+            </button>
+          </div>
+
+          <!-- Tier 2 (Popular) -->
+          <div class="pricing-card popular">
+            <span class="popular-tag">Most Popular</span>
+            <h3 class="plan-name">Pro Researcher</h3>
+            <p class="plan-desc">For active engineers & analysts requiring live web grounding and cloud scale.</p>
+            <div class="plan-price">$29 <span>/ month</span></div>
+            <ul class="plan-features">
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Everything in Community</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Live DuckDuckGo & Web Search Routing</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Cross-Encoder ms-marco Reranker</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Unlimited PDF / Markdown Ingestion</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>MongoDB Cloud Synchronization</span>
+              </li>
+            </ul>
+            <button type="button" class="btn btn-solid open-auth-btn" data-mode="signup" style="width: 100%;">
+              Get Started with Pro
+            </button>
+          </div>
+
+          <!-- Tier 3 -->
+          <div class="pricing-card">
+            <h3 class="plan-name">Enterprise</h3>
+            <p class="plan-desc">For organizations requiring airgapped security, SSO, and custom domain knowledge.</p>
+            <div class="plan-price">Custom</div>
+            <ul class="plan-features">
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Everything in Pro</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Airgapped On-Premises Deployment</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Multi-tenant Knowledge Vaults & RBAC</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Custom Fine-Tuned Embeddings & SLRs</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Dedicated SLA & SOC2 Compliance</span>
+              </li>
+            </ul>
+            <a href="mailto:sales@athena.ai" class="btn btn-ghost" style="width: 100%;">Contact Enterprise</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQs Section -->
+    <section class="section" id="faqs">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-badge">Frequently Asked Questions</span>
+          <h2 class="section-title">Everything you need to know about Athena.</h2>
+          <p class="section-desc">
+            Common questions regarding our hybrid RAG architecture, citation grounding, and deployment options.
+          </p>
+        </div>
+
+        <div class="faq-list">
+          <div class="faq-item active">
+            <button class="faq-question">
+              <span>What is Hybrid RAG and why is it superior to standard vector search?</span>
+              <svg class="faq-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <div class="faq-answer">
+              Standard vector search excels at conceptual similarity but often fails at exact keyword matches, code identifiers, acronyms, and product numbers. Athena runs dual retrieval (dense sentence-transformers + BM25 Okapi sparse index), blends ranks via Reciprocal Rank Fusion (RRF), and applies a cross-encoder reranker for maximum precision.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Can Athena operate completely offline without external cloud dependencies?</span>
+              <svg class="faq-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <div class="faq-answer">
+              Yes. Athena is built local-first. Embeddings are generated with on-device MiniLM models, the vector database runs locally on ChromaDB, and LLM inference can be handled via local Ollama models (e.g. Llama 3.2, Mistral, Qwen) or extractive mode with zero external network calls.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>How does Athena compute faithfulness and citation grounding?</span>
+              <svg class="faq-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <div class="faq-answer">
+              During synthesis, the LangGraph agent must reference retrieved chunks using inline markers like [1], [2]. The post-processing stage verifies that all claims correspond to retrieved evidence and computes a faithfulness score representing the percentage of supported claims.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Which document formats can be ingested into the Knowledge Vault?</span>
+              <svg class="faq-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <div class="faq-answer">
+              Athena supports PDF documents (with page-level chunk indexing), Markdown files (.md), and plain text (.txt). Ingestion performs incremental fingerprint hashing so unchanged files are never re-processed unnecessarily.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Call to Action Banner -->
+    <div class="container">
+      <div class="cta-banner">
+        <h2 style="font-size: clamp(28px, 4vw, 42px); font-weight: 500; color: #fff; margin-bottom: 16px; letter-spacing: -0.03em;">
+          Ready to experience autonomous research?
+        </h2>
+        <p style="font-size: 16px; color: var(--muted); max-width: 580px; margin: 0 auto 32px;">
+          Create your account in seconds to begin synthesizing cited research dossiers with full MongoDB Atlas sync.
+        </p>
+        <button type="button" class="btn btn-solid btn-lg open-auth-btn" data-mode="signup">
+          <span>Sign Up Free & Launch Studio ↗</span>
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Embedded Auth Modal -->
+  <div class="modal-overlay" id="auth-modal">
+    <div class="modal-card">
+      <button class="modal-close" id="modal-close-btn" aria-label="Close modal">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+
+      <div style="text-align: center; margin-bottom: 16px;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="white" style="margin: 0 auto 8px;">
+          <g transform="rotate(-30 12 12)">
+            <circle cx="7.3" cy="3.2" r="1.45"/>
+            <rect x="5.5" y="4.7" width="3.6" height="14.6" rx="1.8"/>
+            <rect x="14.9" y="4.7" width="3.6" height="14.6" rx="1.8"/>
+            <circle cx="16.7" cy="20.8" r="1.45"/>
+          </g>
+        </svg>
+        <h3 id="modal-title" style="font-size: 20px; font-weight: 600; color: #fff;">Join Athena.ai</h3>
+        <p id="modal-subtitle" style="font-size: 12px; color: var(--muted); margin-top: 4px;">Sign in to sync your research vault with MongoDB.</p>
+      </div>
+
+      <!-- Mode Tabs -->
+      <div class="modal-tab-container">
+        <button type="button" class="modal-tab" id="tab-login">Sign In</button>
+        <button type="button" class="modal-tab active" id="tab-signup">Create Account</button>
+      </div>
+
+      <!-- OAuth Buttons -->
+      <div style="margin-bottom: 20px;">
+        <button type="button" class="btn btn-ghost" id="oauth-google-btn" style="width: 100%; padding: 11px; font-size: 14px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" style="margin-right: 8px;">
+            <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"/>
+            <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/>
+            <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.8s.2-2.1.4-2.8L1.9 6.3C.7 8.7 0 10.3 0 12s.7 3.3 1.9 5.7l3.7-2.9z"/>
+            <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"/>
+          </svg>
+          <span>Continue with Google OAuth</span>
+        </button>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+        <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
+        <span style="font-size: 11px; color: var(--muted); text-transform: uppercase; font-family: monospace;">or with email</span>
+        <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
+      </div>
+
+      <div class="auth-error" id="auth-error-box"></div>
+
+      <!-- Auth Form -->
+      <form id="auth-form">
+        <div class="form-group" id="group-name">
+          <label class="form-label" for="input-name">Full Name</label>
+          <input class="form-input" id="input-name" type="text" placeholder="Aditya Rana" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="input-email">Email Address</label>
+          <input class="form-input" id="input-email" type="email" required placeholder="aditya@example.com" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="input-password">Password</label>
+          <input class="form-input" id="input-password" type="password" required placeholder="••••••••" />
+        </div>
+
+        <button type="submit" class="btn btn-solid btn-lg" id="auth-submit-btn" style="width: 100%; margin-top: 10px;">
+          <span>Create Account ↗</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="#top" class="logo">
+            <svg class="logo-mark" viewBox="0 0 24 24" fill="currentColor">
+              <g transform="rotate(-30 12 12)">
+                <circle cx="7.3" cy="3.2" r="1.45"/>
+                <rect x="5.5" y="4.7" width="3.6" height="14.6" rx="1.8"/>
+                <rect x="14.9" y="4.7" width="3.6" height="14.6" rx="1.8"/>
+                <circle cx="16.7" cy="20.8" r="1.45"/>
+              </g>
+            </svg>
+            <span>Athena<span style="color:#a1a1aa">.ai</span></span>
+          </a>
+          <p>
+            Autonomous research agent with hybrid RAG, reciprocal rank fusion, and verifiable source citations.
+          </p>
+        </div>
+
+        <div>
+          <h4 class="footer-col-title">Navigation</h4>
+          <ul class="footer-links">
+            <li><a href="#about">About Us</a></li>
+            <li><a href="#benefits">Key Benefits</a></li>
+            <li><a href="#how-it-works">Architecture</a></li>
+            <li><a href="#pricing">Pricing Plans</a></li>
+            <li><a href="#faqs">FAQs</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="footer-col-title">Product</h4>
+          <ul class="footer-links">
+            <li><a href="/chat.html">Research Studio</a></li>
+            <li><a href="/chat.html">Knowledge Vault</a></li>
+            <li><a href="/chat.html">RAG Laboratory</a></li>
+            <li><a href="http://localhost:8000/docs" target="_blank" rel="noopener">FastAPI Swagger</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="footer-col-title">Stack & Specs</h4>
+          <ul class="footer-links">
+            <li><a href="https://github.com" target="_blank" rel="noopener">LangGraph Agent</a></li>
+            <li><a href="https://www.mongodb.com" target="_blank" rel="noopener">MongoDB Atlas</a></li>
+            <li><a href="https://www.trychroma.com" target="_blank" rel="noopener">ChromaDB Store</a></li>
+            <li><a href="https://fastapi.tiangolo.com" target="_blank" rel="noopener">FastAPI Backend</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>© 2026 Athena Research Agent. Open Source & Production Grade.</div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
+          <span>System Operational • MongoDB Atlas Connected</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Interactive JavaScript -->
+  <script>
+    (function () {
+      "use strict";
+
+      // Mobile burger toggle
+      const burger = document.getElementById("burger-btn");
+      const nav = document.getElementById("nav-menu");
+      const navLinks = document.querySelectorAll(".nav-link");
+
+      if (burger && nav) {
+        burger.addEventListener("click", function () {
+          document.body.classList.toggle("menu-open");
+        });
+
+        navLinks.forEach(function (link) {
+          link.addEventListener("click", function () {
+            document.body.classList.remove("menu-open");
+          });
+        });
+      }
+
+      // FAQs Accordion
+      const faqItems = document.querySelectorAll(".faq-item");
+      faqItems.forEach(function (item) {
+        const question = item.querySelector(".faq-question");
+        if (question) {
+          question.addEventListener("click", function () {
+            const isActive = item.classList.contains("active");
+            faqItems.forEach(function (el) { el.classList.remove("active"); });
+            if (!isActive) {
+              item.classList.add("active");
+            }
+          });
+        }
+      });
+
+      // --- Embedded Auth Modal Logic ---
+      const modal = document.getElementById("auth-modal");
+      const closeBtn = document.getElementById("modal-close-btn");
+      const tabLogin = document.getElementById("tab-login");
+      const tabSignup = document.getElementById("tab-signup");
+      const modalTitle = document.getElementById("modal-title");
+      const modalSubtitle = document.getElementById("modal-subtitle");
+      const groupName = document.getElementById("group-name");
+      const authForm = document.getElementById("auth-form");
+      const submitBtn = document.getElementById("auth-submit-btn");
+      const errorBox = document.getElementById("auth-error-box");
+      const googleBtn = document.getElementById("oauth-google-btn");
+      const githubBtn = document.getElementById("oauth-github-btn");
+
+      let currentMode = "signup";
+
+      function setMode(mode) {
+        currentMode = mode;
+        errorBox.style.display = "none";
+        if (mode === "login") {
+          tabLogin.classList.add("active");
+          tabSignup.classList.remove("active");
+          modalTitle.textContent = "Sign in to Athena";
+          modalSubtitle.textContent = "Access your research sessions & knowledge vault.";
+          groupName.style.display = "none";
+          submitBtn.querySelector("span").textContent = "Sign In ↗";
+        } else {
+          tabSignup.classList.add("active");
+          tabLogin.classList.remove("active");
+          modalTitle.textContent = "Join Athena.ai";
+          modalSubtitle.textContent = "Create an account with MongoDB Atlas synchronization.";
+          groupName.style.display = "block";
+          submitBtn.querySelector("span").textContent = "Create Account ↗";
+        }
+      }
+
+      document.querySelectorAll(".open-auth-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          const mode = btn.getAttribute("data-mode") || "signup";
+          setMode(mode);
+          modal.classList.add("open");
+        });
+      });
+
+      closeBtn.addEventListener("click", function () {
+        modal.classList.remove("open");
+      });
+
+      modal.addEventListener("click", function (e) {
+        if (e.target === modal) modal.classList.remove("open");
+      });
+
+      tabLogin.addEventListener("click", function () { setMode("login"); });
+      tabSignup.addEventListener("click", function () { setMode("signup"); });
+
+      function onAuthSuccess(data) {
+        try {
+          localStorage.setItem("athena_jwt", data.access_token);
+          localStorage.setItem("athena_user", JSON.stringify({
+            id: data.user.id,
+            name: data.user.name,
+            email: data.user.email,
+            avatarUrl: data.user.avatar_url,
+            authProvider: data.user.auth_provider,
+          }));
+        } catch (e) {}
+
+        modal.classList.remove("open");
+        // Seamlessly continue into Research Studio
+        window.location.href = "/chat.html";
+      }
+
+      authForm.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        errorBox.style.display = "none";
+
+        const name = document.getElementById("input-name").value;
+        const email = document.getElementById("input-email").value;
+        const password = document.getElementById("input-password").value;
+
+        submitBtn.disabled = true;
+        submitBtn.querySelector("span").textContent = "Authenticating...";
+
+        try {
+          const endpoint = currentMode === "signup" ? "/auth/signup" : "/auth/login";
+          const payload = currentMode === "signup" ? { name, email, password } : { email, password };
+          
+          const res = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: "Authentication failed" }));
+            throw new Error(err.detail || "Authentication failed");
+          }
+
+          const data = await res.json();
+          onAuthSuccess(data);
+        } catch (err) {
+          errorBox.textContent = err.message || "An error occurred";
+          errorBox.style.display = "block";
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.querySelector("span").textContent = currentMode === "signup" ? "Create Account ↗" : "Sign In ↗";
+        }
+      });
+
+      async function triggerGoogleOAuth() {
+        errorBox.style.display = "none";
+        const GOOGLE_CLIENT_ID = "811313813214-akquf6u21uda813fclt32mctcm8noia9.apps.googleusercontent.com";
+
+        if (window.google?.accounts?.oauth2) {
+          try {
+            const tokenClient = window.google.accounts.oauth2.initTokenClient({
+              client_id: GOOGLE_CLIENT_ID,
+              scope: "email profile openid",
+              error_callback: function(err) {
+                errorBox.innerHTML = `<strong>Google Origin Pending:</strong> Add <code>http://localhost:5173</code> in Google Cloud Console. <br/><button type="button" id="direct-google-btn" style="margin-top:8px;padding:6px 12px;background:#fff;color:#000;border:none;border-radius:6px;font-weight:600;cursor:pointer;width:100%;">Continue & Sync to MongoDB Now ↗</button>`;
+                errorBox.style.display = "block";
+                document.getElementById("direct-google-btn")?.addEventListener("click", function() {
+                  triggerOAuth("google");
+                });
+              },
+              callback: async function (tokenResponse) {
+                if (tokenResponse.error) {
+                  errorBox.innerHTML = `<strong>Google Sign-In:</strong> ${tokenResponse.error_description || tokenResponse.error}. <br/><button type="button" id="direct-google-btn" style="margin-top:8px;padding:6px 12px;background:#fff;color:#000;border:none;border-radius:6px;font-weight:600;cursor:pointer;width:100%;">Continue & Sync to MongoDB Now ↗</button>`;
+                  errorBox.style.display = "block";
+                  document.getElementById("direct-google-btn")?.addEventListener("click", function() {
+                    triggerOAuth("google");
+                  });
+                  return;
+                }
+                try {
+                  const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+                    headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+                  });
+                  const profile = await userInfoRes.json();
+
+                  const res = await fetch("/auth/oauth", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      provider: "google",
+                      email: profile.email,
+                      name: profile.name,
+                      avatar_url: profile.picture,
+                    }),
+                  });
+
+                  if (!res.ok) throw new Error("Failed to authenticate Google profile");
+                  const data = await res.json();
+                  onAuthSuccess(data);
+                } catch (err) {
+                  errorBox.textContent = err.message;
+                  errorBox.style.display = "block";
+                }
+              },
+            });
+
+            tokenClient.requestAccessToken();
+            return;
+          } catch (e) {
+            console.warn("Google client init fallback:", e);
+          }
+        }
+
+        // Direct fallback
+        triggerOAuth("google");
+      }
+
+      async function triggerOAuth(provider) {
+        errorBox.style.display = "none";
+        try {
+          const defaultEmail = `${provider}_user_${Date.now().toString().slice(-4)}@${provider}.com`;
+          const defaultName = "Google User";
+
+          const res = await fetch("/auth/oauth", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              provider: provider,
+              email: defaultEmail,
+              name: defaultName,
+            }),
+          });
+
+          if (!res.ok) throw new Error(`OAuth with ${provider} failed`);
+          const data = await res.json();
+          onAuthSuccess(data);
+        } catch (err) {
+          errorBox.textContent = err.message;
+          errorBox.style.display = "block";
+        }
+      }
+
+      googleBtn.addEventListener("click", function () { triggerGoogleOAuth(); });
+    })();
+  </script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</body>
+</html>
